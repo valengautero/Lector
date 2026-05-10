@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Lector UCC" />
+  <meta name="theme-color" content="#1A1612" />
+  <title>Lector Académico</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;1,8..60,300&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+
+<!-- ── APP SHELL ─────────────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <div class="app-logo">
+        <span class="logo-mark">L</span>
+        <div class="logo-text">
+          <span class="logo-title">Lector</span>
+          <span class="logo-sub">Académico · UCC</span>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-view="pendientes">
+        <span class="nav-icon">◎</span>
+        <span class="nav-label">Pendientes</span>
+        <span class="nav-badge" id="badge-pendientes"></span>
+      </button>
+      <button class="nav-item" data-view="materias">
+        <span class="nav-icon">▤</span>
+        <span class="nav-label">Por Materia</span>
+      </button>
+      <button class="nav-item" data-view="planificador">
+        <span class="nav-icon">◷</span>
+        <span class="nav-label">Planificador</span>
+      </button>
+      <button class="nav-item" data-view="subrayados">
+        <span class="nav-icon">✦</span>
+        <span class="nav-label">Subrayados</span>
+        <span class="nav-badge" id="badge-subrayados"></span>
+      </button>
+    </nav>
+
+    <div class="sidebar-section-label">Materias</div>
+    <div id="sidebar-materias"></div>
+
+    <div class="sidebar-progress">
+      <div class="progress-label">
+        <span>Progreso global</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-sub" id="progress-sub"></div>
+    </div>
+
+    <button id="btn-add-materia" class="btn-ghost-sidebar">+ Nueva materia</button>
+  </aside>
+
+  <!-- MAIN -->
+  <main id="main">
+    <!-- Top bar -->
+    <div id="topbar">
+      <button id="sidebar-toggle" class="icon-btn">☰</button>
+      <div id="topbar-title">Pendientes</div>
+      <div id="topbar-actions">
+        <div class="search-wrap">
+          <input type="search" id="search-input" placeholder="Buscar texto…" />
+        </div>
+        <button id="btn-add-texto" class="btn-primary">+ Agregar texto</button>
+      </div>
+    </div>
+
+    <!-- Views -->
+    <div id="views">
+      <div id="view-pendientes" class="view active"></div>
+      <div id="view-materias" class="view"></div>
+      <div id="view-planificador" class="view"></div>
+      <div id="view-subrayados" class="view"></div>
+    </div>
+  </main>
+
+  <!-- PDF READER PANEL -->
+  <div id="reader-panel" class="hidden">
+    <div id="reader-header">
+      <button id="reader-close" class="icon-btn">✕</button>
+      <div id="reader-title"></div>
+      <div id="reader-controls">
+        <button id="highlight-toggle" class="btn-highlight" title="Modo subrayado">✦ Subrayar</button>
+        <div class="highlight-colors hidden" id="highlight-colors">
+          <button class="hc" data-color="#FFE066" style="background:#FFE066" title="Amarillo"></button>
+          <button class="hc" data-color="#A8D8EA" style="background:#A8D8EA" title="Azul"></button>
+          <button class="hc" data-color="#B8E0B0" style="background:#B8E0B0" title="Verde"></button>
+          <button class="hc" data-color="#F4B8C8" style="background:#F4B8C8" title="Rosa"></button>
+        </div>
+        <span id="reader-page-info"></span>
+        <button id="reader-prev" class="icon-btn">‹</button>
+        <button id="reader-next" class="icon-btn">›</button>
+      </div>
+    </div>
+    <div id="reader-body">
+      <canvas id="pdf-canvas"></canvas>
+      <div id="text-layer"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── MODALS ──────────────────────────────────────────────────────────── -->
+
+<!-- Modal: Agregar / Editar texto -->
+<div id="modal-texto" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-texto-title">Agregar texto</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label>Título</label>
+        <input type="text" id="f-titulo" placeholder="Ej: Barbé – El sistema internacional" />
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Materia</label>
+          <select id="f-materia"></select>
+        </div>
+        <div class="field-group">
+          <label>Unidad</label>
+          <select id="f-unidad"></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field-group">
+          <label>Páginas</label>
+          <input type="number" id="f-paginas" placeholder="Ej: 28" min="1" />
+        </div>
+        <div class="field-group">
+          <label>Deadline</label>
+          <input type="date" id="f-deadline" />
+        </div>
+      </div>
+      <div class="field-group">
+        <label>Archivo PDF <span class="label-optional">(opcional)</span></label>
+        <div class="file-drop" id="file-drop">
+          <input type="file" id="f-pdf" accept="application/pdf" />
+          <div class="file-drop-label">
+            <span class="file-icon">⬆</span>
+            <span>Tocá para elegir o arrastrá un PDF</span>
+            <span class="file-hint">Las páginas se detectan automáticamente</span>
+          </div>
+          <div class="file-selected hidden" id="file-selected"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost modal-close">Cancelar</button>
+      <button class="btn-primary" id="btn-save-texto">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nueva materia -->
+<div id="modal-materia" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box modal-sm">
+    <div class="modal-header">
+      <h3>Nueva materia</h3>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-group">
+        <label>Nombre</label>
+        <input type="text" id="m-nombre" placeholder="Ej: Derecho Internacional" />
+      </div>
+      <div class="field-group">
+        <label>Unidades (una por línea)</label>
+        <textarea id="m-unidades" rows="4" placeholder="Unidad 1 – Introducción&#10;Unidad 2 – Teorías&#10;Unidad 3 – Casos"></textarea>
+      </div>
+      <div class="field-group">
+        <label>Color</label>
+        <div class="color-picker" id="color-picker"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost modal-close">Cancelar</button>
+      <button class="btn-primary" id="btn-save-materia">Crear</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalle de texto -->
+<div id="modal-detalle" class="modal hidden">
+  <div class="modal-backdrop"></div>
+  <div class="modal-box modal-lg">
+    <div class="modal-header">
+      <div id="detalle-badges"></div>
+      <button class="modal-close">✕</button>
+    </div>
+    <div class="modal-body no-pad">
+      <div id="detalle-hero">
+        <h2 id="detalle-titulo"></h2>
+        <div id="detalle-meta"></div>
+        <div id="detalle-actions"></div>
+      </div>
+      <div class="detalle-tabs">
+        <button class="dtab active" data-tab="info">Info</button>
+        <button class="dtab" data-tab="subrayados">Subrayados <span id="dtab-count"></span></button>
+        <button class="dtab" data-tab="notas">Notas</button>
+      </div>
+      <div id="detalle-tab-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden"></div>
+
+<script src="js/db.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+</script>
+<script src="js/app.js"></script>
+</body>
+</html>
